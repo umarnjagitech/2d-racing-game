@@ -2,6 +2,8 @@
 
 A simple 2D first-person racing game built with Pygame, designed to be later ported to Unreal Engine.
 
+![Game Screenshot](images/gameScreenshot1.png)
+
 ## Features
 
 - First-person perspective racing
