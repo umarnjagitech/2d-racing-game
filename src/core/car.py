@@ -1,15 +1,13 @@
-"""
-Car module containing the player's vehicle logic and rendering.
-"""
+# Car module containing the player's vehicle logic and rendering.
 import math
 import pygame
 from ..utils.constants import *
 
 class Car:
-    """Represents the player's car in the game."""
+    # Represents the player's car in the game.
     
     def __init__(self, x: float = 100, y: float = 100):
-        """Initialize the car with default position and properties."""
+        # Initialize the car with default position and properties
         # Position and movement
         self.x = x
         self.y = y
@@ -29,7 +27,7 @@ class Car:
         self._create_car_surface()
     
     def _create_car_surface(self):
-        """Create the car's visual representation."""
+        # Create the car's visual representation
         # Draw a simple rectangle for the car body
         pygame.draw.rect(self.surface, (255, 0, 0), (0, 0, self.width, self.height))
         # Add some details
@@ -37,14 +35,11 @@ class Car:
         pygame.draw.rect(self.surface, (200, 200, 200), (25, 5, 10, 10))  # Window
     
     def update(self, throttle: float, steering: float, dt: float):
-        """
-        Update the car's position and rotation based on input.
-        
-        Args:
-            throttle: Value between -1 (reverse) and 1 (forward)
-            steering: Value between -1 (left) and 1 (right)
-            dt: Delta time since last frame in seconds
-        """
+        # Update the car's position and rotation based on input
+        # Args:
+        #   throttle: Value between -1 (reverse) and 1 (forward)
+        #   steering: Value between -1 (left) and 1 (right)
+        #   dt: Delta time since last frame in seconds
         # Apply throttle
         if abs(throttle) > 0.1:  # Dead zone for keyboard input
             self.speed += throttle * self.acceleration * dt * 60
@@ -69,14 +64,11 @@ class Car:
         self.angle = self.angle % (2 * math.pi)
     
     def render(self, screen: pygame.Surface, camera_x: float, camera_y: float):
-        """
-        Draw the car on the screen.
-        
-        Args:
-            screen: The surface to draw the car on
-            camera_x: Camera x offset
-            camera_y: Camera y offset
-        """
+        # Draw the car on the screen
+        # Args:
+        #   screen: The surface to draw the car on
+        #   camera_x: Camera x offset
+        #   camera_y: Camera y offset
         # Rotate the car surface
         rotated_car = pygame.transform.rotate(self.surface, -math.degrees(self.angle))
         

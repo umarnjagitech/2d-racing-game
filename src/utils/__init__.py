@@ -1,5 +1,2 @@
-""
-Utility functions and constants for the racing game.
-"""
-
+# Utility functions and constants for the racing game.
 # This file is intentionally left empty to make the directory a Python package.

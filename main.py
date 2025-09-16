@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""
-2D First-Person Racing Game
-Main entry point for the game
-"""
+# 2D First-Person Racing Game
+# Main entry point for the game
 import sys
 import pygame
 from src.core.game import RacingGame
 
 def main():
-    """Initialize and run the game"""
+    # Initialize and run the game
     try:
         game = RacingGame("2D Racing Game", 1200, 800)
         game.run()

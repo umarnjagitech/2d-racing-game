@@ -1,14 +1,12 @@
-""
-Heads-Up Display (HUD) for the racing game.
-"""
+# Heads-Up Display (HUD) for the racing game.
 import pygame
 import math
 
 class HUD:
-    """Manages the display of game information on screen."""
+    # Manages the display of game information on screen.
     
     def __init__(self, screen):
-        """Initialize the HUD with the game screen."""
+        # Initialize the HUD with the game screen
         self.screen = screen
         self.font = pygame.font.SysFont('Arial', 24)
         self.small_font = pygame.font.SysFont('Arial', 18)
@@ -19,15 +17,12 @@ class HUD:
         self.warning_color = (255, 0, 0)   # Red
         
     def render(self, lap_time, best_lap, lap_count, speed):
-        """
-        Render the HUD elements.
-        
-        Args:
-            lap_time: Current lap time in seconds
-            best_lap: Best lap time in seconds
-            lap_count: Current lap number
-            speed: Current speed of the car
-        """
+        # Render the HUD elements
+        # Args:
+        #   lap_time: Current lap time in seconds
+        #   best_lap: Best lap time in seconds
+        #   lap_count: Current lap number
+        #   speed: Current speed of the car
         # Convert speed to km/h (assuming speed is in pixels/frame)
         speed_kmh = abs(speed) * 10
         
@@ -47,7 +42,7 @@ class HUD:
         self._draw_controls_help()
     
     def _draw_speedometer(self, speed):
-        """Draw the speedometer on the screen."""
+        # Draw the speedometer on the screen
         # Draw speed number
         speed_text = f"{int(speed)} km/h"
         speed_surface = self.font.render(speed_text, True, self.speed_color)
@@ -76,7 +71,7 @@ class HUD:
         pygame.draw.rect(self.screen, (200, 200, 200), (bar_x, bar_y, bar_width, bar_height), 2)
     
     def _draw_text(self, text, x, y, color=None):
-        """Helper method to draw text on the screen."""
+        # Helper method to draw text on the screen
         if color is None:
             color = self.text_color
             
@@ -84,7 +79,7 @@ class HUD:
         self.screen.blit(text_surface, (x, y))
     
     def _draw_controls_help(self):
-        """Display the controls help text."""
+        # Display the controls help text
         controls = [
             "Controls:",
             "↑/W - Accelerate",
@@ -101,7 +96,7 @@ class HUD:
     
     @staticmethod
     def _format_time(seconds):
-        """Format time in seconds to MM:SS.mmm format."""
+        # Format time in seconds to MM:SS.mmm format
         if seconds == float('inf'):
             return "--:--.---"
             

@@ -1,6 +1,4 @@
-"""
-Main game module containing the game loop and core game logic.
-"""
+# Main game module containing the game loop and core game logic.
 import pygame
 import sys
 from typing import Tuple
@@ -10,10 +8,10 @@ from .track import Track
 from ..ui.hud import HUD
 
 class RacingGame:
-    """Main game class that handles initialization, game loop, and cleanup."""
+    # Main game class that handles initialization, game loop, and cleanup.
     
     def __init__(self, title: str, width: int, height: int):
-        """Initialize the game window and resources."""
+        # Initialize the game window and resources
         pygame.init()
         pygame.display.set_caption(title)
         
@@ -38,7 +36,7 @@ class RacingGame:
         self.lap_count = 0
         
     def handle_events(self):
-        """Process all events in the event queue."""
+        # Process all events in the event queue
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -47,7 +45,7 @@ class RacingGame:
                     self.running = False
     
     def update(self, dt: float):
-        """Update game state."""
+        # Update game state
         # Get keyboard input
         keys = pygame.key.get_pressed()
         
@@ -75,7 +73,7 @@ class RacingGame:
         self.lap_time += dt
     
     def render(self):
-        """Render the game state."""
+        # Render the game state
         # Clear the screen
         self.screen.fill((50, 150, 50))  # Green background for now
         
@@ -92,7 +90,7 @@ class RacingGame:
         pygame.display.flip()
     
     def run(self):
-        """Run the main game loop."""
+        # Run the main game loop
         self.running = True
         last_time = pygame.time.get_ticks() / 1000.0
         
@@ -117,6 +115,6 @@ class RacingGame:
         self.cleanup()
     
     def cleanup(self):
-        """Clean up resources."""
+        # Clean up resources
         pygame.quit()
         sys.exit()

@@ -1,21 +1,19 @@
-"""
-Track module for generating and rendering the racing track.
-"""
+# Track module for generating and rendering the racing track.
 import pygame
 import math
 from ..utils.constants import *
 
 class Track:
-    """Represents the racing track in the game."""
+    # Represents the racing track in the game.
     
     def __init__(self):
-        """Initialize the track with default parameters."""
+        # Initialize the track with default parameters
         self.checkpoints = []
         self.boundaries = []
         self._generate_oval_track()
         
     def _generate_oval_track(self, width=800, height=600):
-        """Generate a simple oval track."""
+        # Generate a simple oval track
         # Outer boundary (rectangle for now)
         outer_width = width
         outer_height = height
@@ -54,14 +52,11 @@ class Track:
         ]
     
     def render(self, screen, camera_x, camera_y):
-        """
-        Draw the track on the screen.
-        
-        Args:
-            screen: The surface to draw the track on
-            camera_x: Camera x offset
-            camera_y: Camera y offset
-        """
+        # Draw the track on the screen
+        # Args:
+        #   screen: The surface to draw the track on
+        #   camera_x: Camera x offset
+        #   camera_y: Camera y offset
         # Draw grass (background)
         screen.fill((34, 139, 34))  # Forest green
         
@@ -102,15 +97,11 @@ class Track:
             )
             
     def check_collision(self, car_rect):
-        """
-        Check if the car collides with track boundaries.
-        
-        Args:
-            car_rect: Pygame Rect representing the car's hitbox
-            
-        Returns:
-            bool: True if collision detected, False otherwise
-        """
+        # Check if the car collides with track boundaries
+        # Args:
+        #   car_rect: Pygame Rect representing the car's hitbox
+        # Returns:
+        #   bool: True if collision detected, False otherwise
         # Simple AABB collision with track boundaries
         for boundary in self.boundaries:
             if self._line_rect_intersect(boundary, car_rect):
@@ -118,7 +109,7 @@ class Track:
         return False
     
     def _line_rect_intersect(self, line, rect):
-        """Check if a line segment intersects with a rectangle."""
+        # Check if a line segment intersects with a rectangle
         # Convert rect to lines
         rect_lines = [
             [(rect.left, rect.top), (rect.right, rect.top)],
@@ -134,7 +125,7 @@ class Track:
         return False
     
     def _line_intersect(self, a1, a2, b1, b2):
-        """Check if two line segments a1-a2 and b1-b2 intersect."""
+        # Check if two line segments a1-a2 and b1-b2 intersect
         # Implementation of line segment intersection test
         # Using cross product method
         def ccw(A, B, C):

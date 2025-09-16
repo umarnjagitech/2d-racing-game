@@ -1,6 +1,4 @@
-""
-Game-wide constants and configuration settings.
-"""
+# Game-wide constants and configuration settings.
 
 # Screen dimensions
 SCREEN_WIDTH = 1200
