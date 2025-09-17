@@ -58,6 +58,34 @@ python main.py
 - Add different game modes
 - Port to Unreal Engine for 3D version
 
+## Version 1.1: Side-Scrolling Update (Planned)
+
+### New Features
+- **Lane-Based Gameplay**: Cars move left-to-right or right-to-left in designated lanes
+- **Multiple Tracks**: Varied environments including city, desert, and mountain themes
+- **Enhanced Vehicle Models**: Detailed car sprites with different models and colors
+- **Track Features**:
+  - Multiple lanes (2-4) for strategic overtaking
+  - Traffic cars moving in both directions
+  - Environmental hazards and obstacles
+  - Checkpoints and finish lines
+- **Game Modes**:
+  - Time trial
+  - Career mode with progressive difficulty
+  - Endless mode
+
+### Technical Improvements
+- Redesigned car physics for side-scrolling
+- Dynamic track generation
+- Improved collision detection
+- Optimized performance for smooth scrolling
+
+### Future Expansion
+- Multiplayer support (local/online)
+- Power-ups and special abilities
+- Customization options for vehicles
+- More tracks and environments
+
 ## License
 
 This project is open source and available under the MIT License.
