@@ -1,9 +1,15 @@
-# Car module containing the player's vehicle logic and rendering.
+# Car module for the racing game.
+import os
+import sys
 import math
 import pygame
 from enum import Enum
 from typing import Tuple, Optional
-from ..utils.constants import *
+
+# Add the src directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from src.utils.constants import *
 
 class Direction(Enum):
     LEFT = -1
@@ -12,19 +18,19 @@ class Direction(Enum):
 class Car:
     # Represents the player's car in the game.
     
-    def __init__(self, x: float, screen_height: int):
+    def __init__(self, x: float, y: float):
         # Initialize the car with default position and properties
         # Position and movement
-        self.x = x  # Current x position
-        self.y = screen_height - 100  # Fixed y position (bottom of screen)
-        self.target_x = x  # Target x position for smooth movement
+        self.x = x  # Starting x position (left side of screen)
+        self.y = y  # Starting y position (middle of screen)
+        self.target_y = y  # Target y position for lane changes
         self.lane = 2  # Current lane (1-4)
-        self.lane_width = 120  # Width of each lane in pixels
+        self.lane_width = 80  # Width of each lane in pixels
         self.lane_change_speed = 0.1  # Speed of lane changes (lower = smoother)
         
         # Track following
-        self.distance_along_track = 0  # Current distance along the track
-        self.look_ahead = 100  # How far ahead to look for steering (pixels)
+        self.distance_along_track = 0  # Start at the beginning of the track
+        self.look_ahead = 150  # How far ahead to look for steering (pixels)
         
         # Lane changing state
         self.is_changing_lanes = False
@@ -32,12 +38,12 @@ class Car:
         
         # Car properties
         self.speed = 0
-        self.max_speed = 5
-        self.acceleration = 0.05
-        self.friction = 0.98  # Friction coefficient (0-1)
-        self.rotation = 0  # Current rotation in degrees
-        self.max_rotation = 25  # Maximum rotation when turning
-        self.rotation_speed = 0.1  # How fast the car rotates (lower = smoother)
+        self.max_speed = 8  # Increased max speed for more exciting gameplay
+        self.acceleration = 0.1  # Increased acceleration for more responsive controls
+        self.friction = 0.95  # Slightly less friction for more slide
+        self.rotation = 0  # Start facing right (0 degrees)
+        self.max_rotation = 30  # Maximum rotation when turning
+        self.rotation_speed = 0.08  # How fast the car rotates (lower = smoother)
         
         # Car dimensions
         self.width = 60
@@ -47,11 +53,15 @@ class Car:
         self.surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self._create_car_surface()
         
-        # Track following
-        self.path_points = []  # Will store points along the track
-        self.current_path_index = 0
-        self.look_ahead_distance = 150  # How far ahead to look for steering
-        self.turn_smoothing = 0.1  # Lower = smoother turns
+        # Store the original surface for rotation
+        self.original_surface = self.surface.copy()
+        
+        # Debug info
+        self.debug_info = {
+            'speed': 0,
+            'distance': 0,
+            'rotation': 0
+        }
     
     def _create_car_surface(self):
         # Create a more detailed car sprite
@@ -88,93 +98,100 @@ class Car:
         new_lane = self.lane + direction.value
         if 1 <= new_lane <= 4:  # Assuming 4 lanes
             self.lane = new_lane
-            # Calculate target x position based on lane number and screen width
-            lane_width = self.lane_width
-            screen_center = self.surface.get_width() // 2
-            self.target_x = screen_center + (self.lane - 2.5) * lane_width
+            # Calculate target y position based on lane number
+            screen_center = self.surface.get_height() // 2
+            self.target_y = screen_center + (self.lane - 2.5) * self.lane_width
             self.is_changing_lanes = True
             self.lane_change_direction = direction
     
     def update(self, throttle: float, steering: float, dt: float, track=None):
-        # Only move if there's throttle input
-        if abs(throttle) < 0.1:
-            self.speed = 0
-        else:
-            # Update car speed based on throttle (forward/backward)
-            self.speed += throttle * self.acceleration * dt * 60
-            
-            # Apply friction
-            self.speed *= self.friction
-            
-            # Limit speed
-            self.speed = max(-self.max_speed/2, min(self.speed, self.max_speed))
+        # Store previous state for recovery if needed
+        prev_distance = self.distance_along_track
+        prev_lane = self.lane
         
-        # Handle lane changes only when moving
-        if abs(self.speed) > 0.1 and abs(steering) > 0.1 and not self.is_changing_lanes:
-            direction = Direction.LEFT if steering < 0 else Direction.RIGHT
-            self.change_lane(direction)
-        
-        # Update car's position along the track
-        if track and hasattr(track, 'get_path_point'):
-            # Store previous position in case we need to revert
-            prev_distance = self.distance_along_track
-            prev_lane = self.lane
+        try:
+            # Always apply some forward movement
+            self.speed = max(3.0, self.speed)  # Minimum speed of 3.0
             
-            # Only move if there's speed
-            if abs(self.speed) > 0.1:
-                # Move car forward/backward along the track
-                self.distance_along_track += self.speed * dt * 100
+            # Handle throttle input
+            if abs(throttle) > 0.1:
+                # Update car speed based on throttle
+                self.speed += throttle * self.acceleration * dt * 60
             
-            # Get current and next path points for direction
-            current_point = track.get_path_point(self.distance_along_track)
-            look_ahead = max(10, abs(self.speed) * 2)
-            next_point = track.get_path_point(self.distance_along_track + look_ahead)
+            # Apply friction and limit speed
+            self.speed = max(3.0, min(self.speed, self.max_speed))
             
-            # Calculate direction vector
-            dx = next_point[0] - current_point[0]
-            dy = next_point[1] - current_point[1]
-            
-            # Calculate target rotation (in degrees)
-            target_angle = math.degrees(math.atan2(-dx, dy))
-            
-            # Smoothly interpolate to target rotation
-            angle_diff = (target_angle - self.rotation + 180) % 360 - 180
-            self.rotation += angle_diff * self.rotation_speed * dt * 5
-            
-            # Calculate lane offset based on current rotation
-            lane_offset = (self.lane - 2.5) * self.lane_width
-            
-            # Calculate new position
-            new_x = current_point[0] + math.sin(math.radians(self.rotation)) * lane_offset
-            new_y = current_point[1] - math.cos(math.radians(self.rotation)) * lane_offset
-            
-            # Check if new position is within track bounds
-            road_left = (track.screen_width - track.num_lanes * track.lane_width) // 2
-            road_right = road_left + track.num_lanes * track.lane_width
-            
-            if road_left <= new_x <= road_right:
-                self.x = new_x
-                self.y = new_y
-            else:
-                # Revert to previous position if out of bounds
-                self.distance_along_track = prev_distance
-                self.lane = prev_lane
-        else:
-            # Fallback to lane-based movement if no track
+            # Handle lane changes with steering (up/down)
             if abs(steering) > 0.1 and not self.is_changing_lanes:
                 direction = Direction.LEFT if steering < 0 else Direction.RIGHT
                 self.change_lane(direction)
             
-            # Move towards target x position (for lane changes)
-            if abs(self.x - self.target_x) > 0.5:
-                self.x += (self.target_x - self.x) * self.lane_change_speed
+            # Update car's position along the track
+            if track and hasattr(track, 'get_path_point'):
+                # Move forward along the track at a constant rate
+                self.distance_along_track += self.speed * dt * 60
                 
-                # Calculate rotation based on movement direction and speed
-                rotation_target = ((self.target_x - self.x) / self.lane_width) * self.max_rotation
-                self.rotation += (rotation_target - self.rotation) * self.rotation_speed * dt * 60
+                # Get current and look-ahead points for direction
+                current_point = track.get_path_point(self.distance_along_track)
+                look_ahead = max(10, abs(self.speed) * 2)
+                next_point = track.get_path_point((self.distance_along_track + look_ahead) % track.track_length)
+                
+                # Calculate direction vector
+                dx = next_point[0] - current_point[0]
+                dy = next_point[1] - current_point[1]
+                
+                # Calculate target rotation based on direction of travel
+                target_angle = math.degrees(math.atan2(dy, dx))
+                
+                # Smoothly interpolate rotation
+                angle_diff = (target_angle - self.rotation + 180) % 360 - 180
+                self.rotation += angle_diff * self.rotation_speed * dt * 5
+                
+                # Calculate lane offset (vertical offset for horizontal track)
+                lane_offset = (self.lane - 2.5) * self.lane_width
+                
+                # Update car's position to follow the track with lane offset
+                target_y = current_point[1] + lane_offset
+                self.y += (target_y - self.y) * 0.1  # Smoothly move to target y
+                
+                # Update x position to follow the track exactly
+                self.x = current_point[0]
+                
+                # Update debug info
+                self.debug_info = {
+                    'speed': round(self.speed, 2),
+                    'distance': round(self.distance_along_track, 2),
+                    'rotation': round(self.rotation, 2),
+                    'position': (round(self.x, 2), round(self.y, 2)),
+                    'lane': self.lane,
+                    'target_y': round(target_y, 2)
+                }
+                
+        except Exception as e:
+            # If any error occurs, revert to previous state
+            print(f"Error updating car position: {e}")
+            self.distance_along_track = prev_distance
+            self.lane = prev_lane
+        
+        # Handle lane changes (fallback if no track)
+        if not track or not hasattr(track, 'get_path_point'):
+            if abs(steering) > 0.1 and not self.is_changing_lanes:
+                direction = Direction.LEFT if steering < 0 else Direction.RIGHT
+                self.change_lane(direction)
+            
+            # Handle lane changes by moving towards target_y
+            if abs(self.y - self.target_y) > 1.0:
+                self.y += (self.target_y - self.y) * self.lane_change_speed * dt * 60
+                self.is_changing_lanes = True
+                
+                # Add slight rotation during lane changes
+                direction = 1 if self.target_y > self.y else -1
+                target_rotation = direction * 15  # 15 degrees max rotation during lane change
+                self.rotation += (target_rotation - self.rotation) * 0.1
             else:
-                # Gradually return to straight when not turning
-                self.rotation *= 0.95
+                self.y = self.target_y
+                self.is_changing_lanes = False
+                self.rotation = 0  # Reset rotation when not changing lanes
         
         # Update car surface with rotation
         self._update_car_rotation()
@@ -195,15 +212,34 @@ class Car:
         self.surface = rotated_surface
     
     def render(self, screen: pygame.Surface, camera_x: float, camera_y: float):
-        # Draw the car on the screen with proper centering and rotation
-        # Calculate screen position based on camera
-        screen_x = self.x - self.width // 2 - camera_x
-        screen_y = self.y - self.height // 2 - camera_y
+        # Calculate screen position
+        screen_x = self.x - camera_x
+        screen_y = self.y - camera_y
         
-        # Get rotated car surface
-        rotated_car = pygame.transform.rotate(self.surface, self.rotation)
-        # Get new rect for the rotated car
-        rotated_rect = rotated_car.get_rect(center=(self.x - camera_x, self.y - camera_y))
+        # Update debug info
+        self.debug_info['speed'] = self.speed
+        self.debug_info['distance'] = self.distance_along_track
+        self.debug_info['rotation'] = self.rotation
+        
+        # Get rotated car surface (negative rotation because Pygame's y-axis is inverted)
+        rotated_car = pygame.transform.rotate(self.original_surface, -self.rotation)
+        
+        # Get new rect for the rotated car (centered)
+        rotated_rect = rotated_car.get_rect(center=(screen_x, screen_y))
         
         # Draw the rotated car
         screen.blit(rotated_car, rotated_rect.topleft)
+        
+        # Draw debug info
+        font = pygame.font.Font(None, 24)
+        debug_text = [
+            f"Speed: {self.speed:.1f}",
+            f"Distance: {self.distance_along_track:.0f}",
+            f"Rotation: {self.rotation:.1f}°",
+            f"Position: ({self.x:.0f}, {self.y:.0f})",
+            f"Lane: {self.lane}"
+        ]
+        
+        for i, text in enumerate(debug_text):
+            text_surface = font.render(text, True, (255, 255, 255))
+            screen.blit(text_surface, (10, 10 + i * 25))

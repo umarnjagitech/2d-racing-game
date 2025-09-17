@@ -1,10 +1,16 @@
 # Track module for generating and rendering the racing track.
+import os
+import sys
 import math
 import pygame
 import random
 from enum import Enum
 from typing import List, Tuple, Optional
-from ..utils.constants import *
+
+# Add the src directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from src.utils.constants import *
 
 class BiomeType(Enum):
     FOREST = "forest"
@@ -45,15 +51,15 @@ class Track:
     
     def _generate_track_elements(self):
         """Generate lane markings and obstacles for the track."""
-        # Calculate lane positions
-        self.start_x = (self.screen_width - (self.num_lanes * self.lane_width)) // 2
+        # Calculate lane positions (vertical lanes for left-to-right movement)
+        self.start_y = (self.screen_height - (self.num_lanes * self.lane_width)) // 2
         
-        # Generate lane markings (dashed lines between lanes)
+        # Generate horizontal lane markings (vertical lines for left-to-right movement)
         for i in range(1, self.num_lanes):
-            x = self.start_x + (i * self.lane_width)
+            y = self.start_y + (i * self.lane_width)
             # Create dashed lane markers (3 screens worth of markers)
-            for y in range(-100, self.screen_height * 3, 60):
-                self.lane_markings.append(LaneMarking(x, y, 2, 30))
+            for x in range(-100, self.track_length + 100, 60):
+                self.lane_markings.append(LaneMarking(x, y, 30, 2))
         
         # Define biome boundaries (in pixels from start)
         biome_length = 2000  # pixels per biome
@@ -69,27 +75,62 @@ class Track:
         # Generate random obstacles (for demonstration)
         for _ in range(20):
             lane = random.randint(0, self.num_lanes - 1)
-            x = self.start_x + (lane * self.lane_width) + random.randint(10, self.lane_width - 30)
-            y = random.randint(0, self.track_length)
+            y = self.start_y + (lane * self.lane_width) + random.randint(10, self.lane_width - 30)
+            x = random.randint(0, self.track_length)
             self.obstacles.append(pygame.Rect(x, y, 30, 30))
     
     def _generate_path(self):
-        """Generate a smooth path for the car to follow."""
-        # Create a wavy path for the track
-        num_points = 100
+        """Generate a smooth horizontal path for the car to follow."""
+        # Clear existing path points
+        self.path_points = []
+        
+        # Generate points along the track (10x screen width for a long track)
+        num_points = 1000
+        self.track_length = self.screen_width * 10  # 10 screens long
+        
+        # Define sections of the track with different characteristics
+        sections = [
+            # (start_t, end_t, amplitude, frequency, is_straight)
+            (0.0, 0.2, 100, 0.5, False),   # Gentle curves at start
+            (0.2, 0.4, 200, 1.0, False),   # More pronounced curves
+            (0.4, 0.6, 50, 2.0, False),    # Quick wiggles
+            (0.6, 0.7, 0, 0, True),        # Straight section
+            (0.7, 0.9, 300, 0.3, False),   # Long, sweeping curves
+            (0.9, 1.0, 0, 0, True)         # Final straight
+        ]
+        
         for i in range(num_points + 1):
-            # Normalized position along track (0 to 1)
+            # Calculate x position (0 to track_length)
+            x = (i / num_points) * self.track_length
             t = i / num_points
             
-            # Calculate x position with sine wave for curves
-            # Amplitude decreases at higher positions to keep car on screen
-            amplitude = self.lane_width * 1.5 * (1 - t * 0.3)
-            x = self.screen_width // 2 + math.sin(t * 10) * amplitude
+            # Default y position (center of screen)
+            y = self.screen_height * 0.5
             
-            # Calculate y position (progress along track)
-            y = t * self.track_length
+            # Find which section this point is in
+            for start_t, end_t, amplitude, frequency, is_straight in sections:
+                if start_t <= t < end_t and not is_straight:
+                    # Calculate position within this section (0 to 1)
+                    section_t = (t - start_t) / (end_t - start_t)
+                    # Create smooth curve within this section
+                    y_offset = math.sin(section_t * frequency * math.pi * 2) * amplitude
+                    y = self.screen_height * 0.5 + y_offset
+                    break
+            
+            # Ensure the path stays within screen bounds with padding
+            padding = self.lane_width * 2
+            y = max(padding, min(y, self.screen_height - padding))
+            
+            # Add some small random variation for more natural look
+            if not any(start_t <= t < end_t and is_straight for start_t, end_t, _, _, is_straight in sections):
+                y += (random.random() - 0.5) * 5
             
             self.path_points.append((x, y))
+            
+            # Add biome boundaries at regular intervals
+            if i % 100 == 0 and i > 0:
+                biome = random.choice(list(BiomeType))
+                self.biome_boundaries.append((x, biome))
     
     def get_path_point(self, distance: float) -> Tuple[float, float]:
         """Get a point along the path at the given distance."""
@@ -149,25 +190,26 @@ class Track:
         road_width = self.num_lanes * self.lane_width
         road_left = (self.screen_width - road_width) // 2
         
-        # Draw the road
+        # Draw the road (horizontal)
+        road_top = (self.screen_height - road_width) // 2
         pygame.draw.rect(screen, self.road_color, 
-                        (road_left, 0, road_width, self.screen_height))
+                        (0, road_top, self.screen_width, road_width))
         
-        # Draw shoulders
-        shoulder_width = (self.screen_width - road_width) // 2
+        # Draw shoulders (top and bottom of screen)
+        shoulder_width = (self.screen_height - road_width) // 2
         pygame.draw.rect(screen, self.shoulder_color, 
-                        (0, 0, shoulder_width, self.screen_height))  # Left shoulder
+                        (0, 0, self.screen_width, shoulder_width))  # Top shoulder
         pygame.draw.rect(screen, self.shoulder_color, 
-                        (self.screen_width - shoulder_width, 0, 
-                         shoulder_width, self.screen_height))  # Right shoulder
+                        (0, self.screen_height - shoulder_width, 
+                         self.screen_width, shoulder_width))  # Bottom shoulder
         
-        # Draw lane markings (dashed lines between lanes)
+        # Draw lane markings (horizontal dashed lines between lanes)
         for i in range(1, self.num_lanes):
-            x = road_left + (i * self.lane_width)
+            y = road_top + (i * self.lane_width)
             # Draw dashed lane markers for visible area
-            for y in range(-60, self.screen_height + 60, 60):
+            for x in range(-60, self.screen_width + 60, 60):
                 pygame.draw.rect(screen, (255, 255, 255), 
-                              (x - 1, y, 2, 30))
+                              (x, y - 1, 30, 2))
         
         # Draw obstacles
         for obstacle in self.obstacles:

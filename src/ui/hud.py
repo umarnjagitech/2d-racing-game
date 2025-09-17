@@ -8,8 +8,17 @@ class HUD:
     def __init__(self, screen):
         # Initialize the HUD with the game screen
         self.screen = screen
-        self.font = pygame.font.SysFont('Arial', 24)
-        self.small_font = pygame.font.SysFont('Arial', 18)
+        
+        # Try to load system fonts, fall back to default font if not available
+        try:
+            self.font = pygame.font.SysFont('Arial', 24)
+            self.small_font = pygame.font.SysFont('Arial', 18)
+        except Exception as e:
+            print(f"Warning: Could not load system fonts: {e}")
+            print("Falling back to default font.")
+            # Use pygame's default font
+            self.font = pygame.font.Font(None, 36)
+            self.small_font = pygame.font.Font(None, 24)
         
         # Colors
         self.text_color = (255, 255, 255)  # White
