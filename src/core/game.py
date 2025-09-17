@@ -20,20 +20,23 @@ class RacingGame:
         self.clock = pygame.time.Clock()
         self.running = False
         self.fps = 60
+        self.width = width
+        self.height = height
         
         # Game state
-        self.car = Car()
-        self.track = Track()
+        self.car = Car(width // 2, height)
+        self.track = Track(width, height, num_lanes=4)
         self.hud = HUD(self.screen)
         
-        # Camera settings
-        self.camera_x = 0
+        # Camera settings (for scrolling background)
         self.camera_y = 0
         
         # Game metrics
         self.lap_time = 0
         self.best_lap = float('inf')
         self.lap_count = 0
+        self.distance = 0
+        self.speed = 0
         
     def handle_events(self):
         # Process all events in the event queue
@@ -45,46 +48,66 @@ class RacingGame:
                     self.running = False
     
     def update(self, dt: float):
-        # Update game state
         # Get keyboard input
         keys = pygame.key.get_pressed()
         
-        # Handle car controls
-        throttle = 0
-        steering = 0
+        # Handle car controls - car won't move until player presses up/down
+        throttle = 0.0  # Start with no throttle
+        steering = 0.0
         
+        # Only allow steering when moving forward/backward
         if keys[pygame.K_UP] or keys[pygame.K_w]:
-            throttle = 1
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            throttle = -1
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            steering = -1
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            steering = 1
+            throttle = 1.0  # Move forward
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                steering = -1.0  # Turn left
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                steering = 1.0   # Turn right
+        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            throttle = -0.5  # Move backward (slower than forward)
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                steering = 1.0   # Reverse steering when going backward
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                steering = -1.0  # Reverse steering when going backward
             
-        # Update car
-        self.car.update(throttle, steering, dt)
+        # Update car with track for path following
+        self.car.update(throttle, steering, dt, self.track)
         
-        # Update camera to follow car
-        self.camera_x = self.car.x - self.screen.get_width() // 2
-        self.camera_y = self.car.y - self.screen.get_height() // 2
+        # Update game state
+        self.speed = self.car.speed
+        self.distance += self.speed * dt * 10  # Scale factor for better distance tracking
+        
+        # Update camera to follow car's y-position (with some smoothing)
+        target_camera_y = self.car.y - self.height * 0.7  # Keep car in upper part of screen
+        self.camera_y += (target_camera_y - self.camera_y) * 0.1  # Smooth camera follow
+        
+        # Ensure camera doesn't go above track start
+        self.camera_y = max(0, self.camera_y)
         
         # Update lap time
         self.lap_time += dt
     
+    def _draw_background(self):
+        """Draw the scrolling background based on current biome."""
+        # The track class now handles biome-specific background drawing
+        pass
+    
     def render(self):
-        # Render the game state
         # Clear the screen
-        self.screen.fill((50, 150, 50))  # Green background for now
+        self.screen.fill((0, 0, 0))
         
-        # Draw track
-        self.track.render(self.screen, self.camera_x, self.camera_y)
+        # Render track with camera offset for scrolling
+        self.track.render(self.screen, 0, self.camera_y)
         
-        # Draw car
-        self.car.render(self.screen, self.camera_x, self.camera_y)
+        # Draw car (centered at the bottom of the screen)
+        self.car.render(self.screen, 0, 0)
         
         # Draw HUD
-        self.hud.render(self.lap_time, self.best_lap, self.lap_count, self.car.speed)
+        self.hud.render(
+            self.lap_time, 
+            self.best_lap, 
+            self.lap_count, 
+            abs(self.speed) * 10  # Use absolute value of speed for display
+        )
         
         # Update the display
         pygame.display.flip()
