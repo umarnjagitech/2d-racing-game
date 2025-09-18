@@ -38,9 +38,11 @@ class Car:
         
         # Car properties
         self.speed = 0
-        self.max_speed = 8  # Increased max speed for more exciting gameplay
-        self.acceleration = 0.1  # Increased acceleration for more responsive controls
-        self.friction = 0.95  # Slightly less friction for more slide
+        self.max_speed = 8  # Maximum speed
+        self.min_speed = 0.5  # Reduced minimum speed for better control
+        self.acceleration = 0.1  # Base acceleration rate
+        self.braking = 0.15  # Braking/deceleration rate
+        self.friction = 0.98  # Increased friction for more controlled stopping
         self.rotation = 0  # Start facing right (0 degrees)
         self.max_rotation = 30  # Maximum rotation when turning
         self.rotation_speed = 0.08  # How fast the car rotates (lower = smoother)
@@ -98,9 +100,6 @@ class Car:
         new_lane = self.lane + direction.value
         if 1 <= new_lane <= 4:  # Assuming 4 lanes
             self.lane = new_lane
-            # Calculate target y position based on lane number
-            screen_center = self.surface.get_height() // 2
-            self.target_y = screen_center + (self.lane - 2.5) * self.lane_width
             self.is_changing_lanes = True
             self.lane_change_direction = direction
     
@@ -110,29 +109,38 @@ class Car:
         prev_lane = self.lane
         
         try:
-            # Always apply some forward movement
-            self.speed = max(3.0, self.speed)  # Minimum speed of 3.0
-            
             # Handle throttle input
             if abs(throttle) > 0.1:
-                # Update car speed based on throttle
-                self.speed += throttle * self.acceleration * dt * 60
+                # Update car speed based on throttle (positive for accelerate, negative for brake)
+                if throttle > 0:
+                    self.speed += throttle * self.acceleration * dt * 60
+                else:
+                    # Apply stronger braking when slowing down
+                    self.speed += throttle * self.braking * dt * 60 * 2
             
             # Apply friction and limit speed
-            self.speed = max(3.0, min(self.speed, self.max_speed))
+            self.speed = max(self.min_speed, min(self.speed, self.max_speed))
             
-            # Handle lane changes with steering (up/down)
-            if abs(steering) > 0.1 and not self.is_changing_lanes:
+            # If no throttle input, apply gradual deceleration
+            if abs(throttle) < 0.1 and self.speed > self.min_speed:
+                self.speed *= 0.99  # Gentle deceleration
+            
+            # Handle steering for lane changes (only when not already changing lanes)
+            if not self.is_changing_lanes and abs(steering) > 0.1:
                 direction = Direction.LEFT if steering < 0 else Direction.RIGHT
-                self.change_lane(direction)
+                new_lane = self.lane + direction.value
+                if 1 <= new_lane <= 4:  # Check if new lane is valid
+                    self.change_lane(direction)
             
             # Update car's position along the track
             if track and hasattr(track, 'get_path_point'):
                 # Move forward along the track at a constant rate
                 self.distance_along_track += self.speed * dt * 60
                 
-                # Get current and look-ahead points for direction
+                # Get current track point
                 current_point = track.get_path_point(self.distance_along_track)
+                
+                # Calculate lookahead distance based on speed (further lookahead at higher speeds)
                 look_ahead = max(10, abs(self.speed) * 2)
                 next_point = track.get_path_point((self.distance_along_track + look_ahead) % track.track_length)
                 
@@ -147,12 +155,21 @@ class Car:
                 angle_diff = (target_angle - self.rotation + 180) % 360 - 180
                 self.rotation += angle_diff * self.rotation_speed * dt * 5
                 
-                # Calculate lane offset (vertical offset for horizontal track)
+                # Calculate target y position based on lane
                 lane_offset = (self.lane - 2.5) * self.lane_width
-                
-                # Update car's position to follow the track with lane offset
                 target_y = current_point[1] + lane_offset
-                self.y += (target_y - self.y) * 0.1  # Smoothly move to target y
+                
+                # Smoothly move to target y position
+                y_diff = target_y - self.y
+                if abs(y_diff) > 1.0:  # Only update if we need to move
+                    # Scale movement speed based on distance to target (easing)
+                    move_speed = min(1.0, abs(y_diff) / (self.lane_width * 0.5))
+                    self.y += y_diff * move_speed * 0.2  # Reduced from 0.3 to 0.2 for smoother movement
+                    self.rotation = y_diff * 0.1  # Simple rotation based on y difference
+                else:
+                    self.y = target_y
+                    self.rotation = 0
+                    self.is_changing_lanes = False
                 
                 # Update x position to follow the track exactly
                 self.x = current_point[0]
@@ -173,25 +190,25 @@ class Car:
             self.distance_along_track = prev_distance
             self.lane = prev_lane
         
-        # Handle lane changes (fallback if no track)
+        # Fallback for when there's no track (shouldn't normally happen)
         if not track or not hasattr(track, 'get_path_point'):
-            if abs(steering) > 0.1 and not self.is_changing_lanes:
-                direction = Direction.LEFT if steering < 0 else Direction.RIGHT
-                self.change_lane(direction)
+            # Simple movement without track following (for testing)
+            self.x += self.speed * dt * 60
             
-            # Handle lane changes by moving towards target_y
-            if abs(self.y - self.target_y) > 1.0:
-                self.y += (self.target_y - self.y) * self.lane_change_speed * dt * 60
-                self.is_changing_lanes = True
+            # Handle lane changes with simple movement
+            if self.is_changing_lanes:
+                target_y = (self.screen_height // 2) + (self.lane - 2.5) * self.lane_width
+                y_diff = target_y - self.y
                 
-                # Add slight rotation during lane changes
-                direction = 1 if self.target_y > self.y else -1
-                target_rotation = direction * 15  # 15 degrees max rotation during lane change
-                self.rotation += (target_rotation - self.rotation) * 0.1
-            else:
-                self.y = self.target_y
-                self.is_changing_lanes = False
-                self.rotation = 0  # Reset rotation when not changing lanes
+                if abs(y_diff) > 1.0:
+                    # Move towards target y position
+                    move_speed = min(1.0, abs(y_diff) / (self.lane_width * 0.5))
+                    self.y += y_diff * move_speed * 0.2
+                    self.rotation = y_diff * 0.1
+                else:
+                    self.y = target_y
+                    self.rotation = 0
+                    self.is_changing_lanes = False
         
         # Update car surface with rotation
         self._update_car_rotation()
