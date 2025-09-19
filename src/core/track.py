@@ -20,19 +20,20 @@ class BiomeType(Enum):
     RAINFOREST = "rainforest"
 
 class LaneMarking:
-    def __init__(self, x: int, y: int, width: int = 2, height: int = 30):
+    def __init__(self, x: int, y: int, width: int = 5, height: int = 40):
         self.rect = pygame.Rect(x, y, width, height)
         self.color = (255, 255, 255)  # White lane markings
 
 class Track:
-    """Represents the racing track in the side-scrolling game."""
+    """Represents the racing track in the top-down game."""
     
     def __init__(self, screen_width: int, screen_height: int, num_lanes: int = 4):
         # Initialize track parameters
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.num_lanes = num_lanes
-        self.lane_width = screen_width // (num_lanes + 2)  # Add some margin
+        self.lane_width = 60  # Fixed lane width
+        self.road_width = self.num_lanes * self.lane_width
         self.road_color = (50, 50, 50)  # Dark gray road
         self.shoulder_color = (100, 100, 100)  # Lighter gray for shoulders
         
@@ -46,23 +47,20 @@ class Track:
         self.track_length = 0
         
         # Initialize track elements
-        self._generate_track_elements()
         self._generate_path()
+        self._generate_track_elements()
     
     def _generate_track_elements(self):
         """Generate lane markings and obstacles for the track."""
-        # Calculate lane positions (vertical lanes for left-to-right movement)
-        self.start_y = (self.screen_height - (self.num_lanes * self.lane_width)) // 2
-        
-        # Generate horizontal lane markings (vertical lines for left-to-right movement)
+        # Generate vertical lane markings
         for i in range(1, self.num_lanes):
-            y = self.start_y + (i * self.lane_width)
-            # Create dashed lane markers (3 screens worth of markers)
-            for x in range(-100, self.track_length + 100, 60):
-                self.lane_markings.append(LaneMarking(x, y, 30, 2))
+            x = (self.screen_width - self.road_width) // 2 + (i * self.lane_width)
+            # Create dashed lane markers
+            for y in range(0, self.track_length, 100):
+                self.lane_markings.append(LaneMarking(x - 2, y, 4, 40))
         
         # Define biome boundaries (in pixels from start)
-        biome_length = 2000  # pixels per biome
+        biome_length = 3000  # pixels per biome
         self.biome_boundaries = [
             (0, BiomeType.GRASSLAND),
             (biome_length, BiomeType.FOREST),
@@ -70,90 +68,64 @@ class Track:
             (biome_length * 3, BiomeType.DESERT),
             (biome_length * 4, BiomeType.RAINFOREST),
         ]
-        self.track_length = biome_length * 5  # Total track length for all biomes
         
-        # Generate random obstacles (for demonstration)
-        for _ in range(20):
+        # Generate random obstacles
+        for _ in range(50):
             lane = random.randint(0, self.num_lanes - 1)
-            y = self.start_y + (lane * self.lane_width) + random.randint(10, self.lane_width - 30)
-            x = random.randint(0, self.track_length)
+            x = (self.screen_width - self.road_width) // 2 + (lane * self.lane_width) + random.randint(10, self.lane_width - 40)
+            y = random.randint(500, self.track_length - 500)
             self.obstacles.append(pygame.Rect(x, y, 30, 30))
     
     def _generate_path(self):
-        """Generate a smooth horizontal path for the car to follow."""
-        # Clear existing path points
+        """Generate a smooth vertical path for the car to follow."""
         self.path_points = []
-        
-        # Generate points along the track (10x screen width for a long track)
         num_points = 1000
-        self.track_length = self.screen_width * 10  # 10 screens long
+        self.track_length = self.screen_height * 10  # 10 screens long
         
-        # Define sections of the track with different characteristics
         sections = [
-            # (start_t, end_t, amplitude, frequency, is_straight)
-            (0.0, 0.2, 100, 0.5, False),   # Gentle curves at start
-            (0.2, 0.4, 200, 1.0, False),   # More pronounced curves
-            (0.4, 0.6, 50, 2.0, False),    # Quick wiggles
-            (0.6, 0.7, 0, 0, True),        # Straight section
-            (0.7, 0.9, 300, 0.3, False),   # Long, sweeping curves
-            (0.9, 1.0, 0, 0, True)         # Final straight
+            (0.0, 0.2, 150, 0.5, False),
+            (0.2, 0.4, 250, 1.0, False),
+            (0.4, 0.6, 80, 2.0, False),
+            (0.6, 0.7, 0, 0, True),
+            (0.7, 0.9, 350, 0.3, False),
+            (0.9, 1.0, 0, 0, True)
         ]
         
         for i in range(num_points + 1):
-            # Calculate x position (0 to track_length)
-            x = (i / num_points) * self.track_length
+            y = (i / num_points) * self.track_length
             t = i / num_points
             
-            # Default y position (center of screen)
-            y = self.screen_height * 0.5
+            x = self.screen_width / 2
             
-            # Find which section this point is in
             for start_t, end_t, amplitude, frequency, is_straight in sections:
                 if start_t <= t < end_t and not is_straight:
-                    # Calculate position within this section (0 to 1)
                     section_t = (t - start_t) / (end_t - start_t)
-                    # Create smooth curve within this section
-                    y_offset = math.sin(section_t * frequency * math.pi * 2) * amplitude
-                    y = self.screen_height * 0.5 + y_offset
+                    x_offset = math.sin(section_t * frequency * math.pi * 2) * amplitude
+                    x = self.screen_width / 2 + x_offset
                     break
             
-            # Ensure the path stays within screen bounds with padding
-            padding = self.lane_width * 2
-            y = max(padding, min(y, self.screen_height - padding))
-            
-            # Add some small random variation for more natural look
-            if not any(start_t <= t < end_t and is_straight for start_t, end_t, _, _, is_straight in sections):
-                y += (random.random() - 0.5) * 5
+            padding = self.road_width / 2
+            x = max(padding, min(x, self.screen_width - padding))
             
             self.path_points.append((x, y))
-            
-            # Add biome boundaries at regular intervals
-            if i % 100 == 0 and i > 0:
-                biome = random.choice(list(BiomeType))
-                self.biome_boundaries.append((x, biome))
     
     def get_path_point(self, distance: float) -> Tuple[float, float]:
         """Get a point along the path at the given distance."""
         if not self.path_points:
             return (self.screen_width // 2, 0)
             
-        # Wrap distance around track length
         distance = distance % self.track_length
         
-        # Find the segment where this distance falls
         segment_length = self.track_length / (len(self.path_points) - 1)
         segment = int(distance / segment_length)
-        segment = min(segment, len(self.path_points) - 2)  # Ensure we don't go out of bounds
+        segment = min(segment, len(self.path_points) - 2)
         
-        # Get the start and end points of the segment
         start_point = self.path_points[segment]
         end_point = self.path_points[segment + 1]
         
-        # Calculate interpolation factor (0 to 1) within the segment
         segment_start_dist = segment * segment_length
         t = (distance - segment_start_dist) / segment_length
         
-        # Linear interpolation between points
         x = start_point[0] + (end_point[0] - start_point[0]) * t
         y = start_point[1] + (end_point[1] - start_point[1]) * t
         
@@ -161,10 +133,9 @@ class Track:
     
     def get_current_biome(self, camera_y: float) -> BiomeType:
         """Get the current biome based on camera position."""
-        distance = camera_y % (len(BiomeType) * 2000)  # Loop through biomes
+        distance = camera_y % self.track_length
         
-        # Find the current biome based on camera position
-        current_biome = BiomeType.GRASSLAND  # Default
+        current_biome = BiomeType.GRASSLAND
         for boundary, biome in sorted(self.biome_boundaries, key=lambda x: x[0]):
             if distance >= boundary:
                 current_biome = biome
@@ -173,91 +144,55 @@ class Track:
     def get_biome_color(self, biome: BiomeType) -> Tuple[int, int, int]:
         """Get the background color for a biome."""
         return {
-            BiomeType.FOREST: (34, 139, 34),     # Forest green
-            BiomeType.GRASSLAND: (124, 252, 0),  # Lawn green
-            BiomeType.DESERT: (255, 211, 155),   # Desert sand
-            BiomeType.MOUNTAIN: (169, 169, 169), # Dark gray
-            BiomeType.RAINFOREST: (0, 100, 0)    # Dark green
-        }.get(biome, (50, 150, 50))  # Default to green
+            BiomeType.FOREST: (34, 139, 34),
+            BiomeType.GRASSLAND: (124, 252, 0),
+            BiomeType.DESERT: (255, 211, 155),
+            BiomeType.MOUNTAIN: (169, 169, 169),
+            BiomeType.RAINFOREST: (0, 100, 0)
+        }.get(biome, (50, 150, 50))
     
     def render(self, screen: pygame.Surface, camera_x: float, camera_y: float):
         """Render the track with the current camera position."""
-        # Get current biome and set background color
         current_biome = self.get_current_biome(camera_y)
         screen.fill(self.get_biome_color(current_biome))
         
-        # Draw the road surface
-        road_width = self.num_lanes * self.lane_width
-        road_left = (self.screen_width - road_width) // 2
+        road_left = (self.screen_width - self.road_width) // 2
         
-        # Draw the road (horizontal)
-        road_top = (self.screen_height - road_width) // 2
+        # Draw the road
         pygame.draw.rect(screen, self.road_color, 
-                        (0, road_top, self.screen_width, road_width))
+                        (road_left, 0, self.road_width, self.screen_height))
         
-        # Draw shoulders (top and bottom of screen)
-        shoulder_width = (self.screen_height - road_width) // 2
+        # Draw shoulders
+        shoulder_width = road_left
         pygame.draw.rect(screen, self.shoulder_color, 
-                        (0, 0, self.screen_width, shoulder_width))  # Top shoulder
+                        (0, 0, shoulder_width, self.screen_height))
         pygame.draw.rect(screen, self.shoulder_color, 
-                        (0, self.screen_height - shoulder_width, 
-                         self.screen_width, shoulder_width))  # Bottom shoulder
+                        (self.screen_width - shoulder_width, 0, 
+                         shoulder_width, self.screen_height))
         
-        # Draw lane markings (horizontal dashed lines between lanes)
+        # Draw lane markings
         for i in range(1, self.num_lanes):
-            y = road_top + (i * self.lane_width)
-            # Draw dashed lane markers for visible area
-            for x in range(-60, self.screen_width + 60, 60):
+            x = road_left + (i * self.lane_width)
+            for y_offset in range(-100, self.screen_height + 100, 100):
+                y = y_offset - (camera_y % 100)
                 pygame.draw.rect(screen, (255, 255, 255), 
-                              (x, y - 1, 30, 2))
+                              (x - 2, y, 4, 40))
         
         # Draw obstacles
         for obstacle in self.obstacles:
-            # Only draw obstacles that are visible on screen
             obstacle_screen_y = obstacle.y - camera_y
             if -obstacle.height <= obstacle_screen_y <= self.screen_height:
                 pygame.draw.rect(screen, (200, 50, 50), 
                               (obstacle.x, obstacle_screen_y, 
                                obstacle.width, obstacle.height))
         
-        # Draw biome name (for debugging)
         font = pygame.font.Font(None, 36)
         biome_text = f"{current_biome.value.upper()}"
         text_surface = font.render(biome_text, True, (255, 255, 255))
         screen.blit(text_surface, (self.screen_width - 150, 20))
             
     def check_collision(self, car_rect):
-        # Check if the car collides with track boundaries
-        # Args:
-        #   car_rect: Pygame Rect representing the car's hitbox
-        #   bool: True if collision detected, False otherwise
-        # Simple AABB collision with track boundaries
-        for boundary in self.boundaries:
-            if self._line_rect_intersect(boundary, car_rect):
+        for obstacle in self.obstacles:
+            if car_rect.colliderect(obstacle):
                 return True
         return False
-    
-    def _line_rect_intersect(self, line, rect):
-        # Check if a line segment intersects with a rectangle
-        # Convert rect to lines
-        rect_lines = [
-            [(rect.left, rect.top), (rect.right, rect.top)],
-            [(rect.right, rect.top), (rect.right, rect.bottom)],
-            [(rect.right, rect.bottom), (rect.left, rect.bottom)],
-            [(rect.left, rect.bottom), (rect.left, rect.top)]
-        ]
-        
-        # Check for line-line intersection with each rect edge
-        for rect_line in rect_lines:
-            if self._line_intersect(line[0], line[1], rect_line[0], rect_line[1]):
-                return True
-        return False
-    
-    def _line_intersect(self, a1, a2, b1, b2):
-        # Check if two line segments a1-a2 and b1-b2 intersect
-        # Implementation of line segment intersection test
-        # Using cross product method
-        def ccw(A, B, C):
-            return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
-        
-        return ccw(a1, b1, b2) != ccw(a2, b1, b2) and ccw(a1, a2, b1) != ccw(a1, a2, b2)
